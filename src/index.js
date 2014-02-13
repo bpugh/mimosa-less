@@ -3,21 +3,20 @@
 var fs = require( 'fs' )
   , path = require( 'path' )
   , _ = require( 'lodash' )
-  , logger = null
+  , logger = require( 'logmimosa' )
   , config = require( './config' )
   , importRegex = /@import\s+(?:(?:\(less\)|\(css\))\s+?)?['"](.*)['"]/g
   , getImportFilePath = function ( baseFile, importPath ) {
     return path.join( path.dirname( baseFile ), importPath );
   }
   , getExtensions = function ( mimosaConfig ) {
-    logger = mimosaConfig.log;
     return mimosaConfig.less.extensions;
   };
 
 var compile = function ( mimosaConfig, file, done ) {
   var fileName = file.inputFileName;
 
-  if ( logger.isDebug() ) {
+  if ( logger.isDebug ) {
     logger.debug( "Compiling LESS file [[ " + fileName + " ]], first parsing..." );
   }
 
@@ -25,6 +24,7 @@ var compile = function ( mimosaConfig, file, done ) {
     paths: [ mimosaConfig.watch.sourceDir, path.dirname( fileName ) ],
     filename: fileName
   } );
+  console.log(fileName);
 
   parser.parse( file.inputFileText, function ( error, tree ) {
     var err, result;
@@ -35,7 +35,18 @@ var compile = function ( mimosaConfig, file, done ) {
 
     try {
       logger.debug( "...then converting to CSS" );
-      result = tree.toCSS();
+      var mapFileName = path.basename(file.outputFileName) + '.map';
+      var mapFilePath = file.outputFileName + '.map';
+      var options = {
+        sourceMap: true,
+        sourceMapFilename: mapFileName,
+        sourceMapRootpath: '',
+        writeSourceMap: function (sourceMapContent){
+          console.log('writing source map');
+          fs.writeFileSync(mapFilePath, sourceMapContent);
+        }
+      }
+      result = tree.toCSS(options);
     } catch ( ex ) {
       err = ex.type + " Error: " + ex.message;
       if ( ex.filename ) {
@@ -43,7 +54,7 @@ var compile = function ( mimosaConfig, file, done ) {
       }
     }
 
-    if ( logger.isDebug() ) {
+    if ( logger.isDebug ) {
       logger.debug( "Finished LESS compile for file [[ " + fileName + " ]], errors? " + !!err) ;
     }
 
@@ -83,7 +94,7 @@ var determineBaseFiles = function ( allFiles ) {
   });
 
   var baseFiles = _.difference( allFiles, imported );
-  if ( logger.isDebug() ) {
+  if ( logger.isDebug ) {
     logger.debug( "Base files for LESS are:\n" + baseFiles.join( '\n' ) );
   }
   return baseFiles;
